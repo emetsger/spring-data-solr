@@ -37,8 +37,11 @@ import org.springframework.data.solr.core.query.SimpleQuery;
 import org.springframework.data.solr.core.query.SolrPageRequest;
 import org.springframework.data.solr.repository.SolrCrudRepository;
 import org.springframework.data.solr.repository.query.SolrEntityInformation;
+import org.springframework.data.solr.server.support.SolrClientUtils;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.Assert;
+import org.springframework.util.ClassUtils;
+import org.springframework.util.StringUtils;
 
 /**
  * Solr specific repository implementation. Likely to be used as target within {@link SolrRepositoryFactory}
@@ -147,7 +150,8 @@ public class SimpleSolrRepository<T, ID extends Serializable> implements SolrCru
 		Assert.notNull(entity, "Cannot save 'null' entity.");
 		registerTransactionSynchronisationIfSynchronisationActive();
 		this.solrOperations.saveBean(entity);
-		commitIfTransactionSynchronisationIsInactive();
+		String coreName = SolrClientUtils.resolveSolrCoreName(entity.getClass());
+		commitIfTransactionSynchronisationIsInactive(coreName);
 		return entity;
 	}
 
@@ -295,8 +299,16 @@ public class SimpleSolrRepository<T, ID extends Serializable> implements SolrCru
 	}
 
 	private void commitIfTransactionSynchronisationIsInactive() {
+		commitIfTransactionSynchronisationIsInactive(null);
+	}
+
+	private void commitIfTransactionSynchronisationIsInactive(String coreName) {
 		if (!TransactionSynchronizationManager.isSynchronizationActive()) {
-			this.solrOperations.commit();
+			if (StringUtils.hasText(coreName)) {
+				this.solrOperations.commit(coreName);
+			} else {
+				this.solrOperations.commit();
+			}
 		}
 	}
 
